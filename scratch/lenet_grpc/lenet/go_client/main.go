@@ -39,12 +39,15 @@ func main() {
                 log.Fatalf("did not connect: %v", err)
         }
         defer conn.Close()
-        c := pb.NewOperationClient(conn)
+        c := pb.NewDlframeworkClient(conn)
 
         ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
         defer cancel()
-        var image_1 string = "cat"
-        r, err := c.Predict(ctx, &pb.DlRequest{Image: &image_1})
+
+        // read image
+
+        var test_image_index string = "1"
+        r, err := c.Predict(ctx, &pb.DlRequest{Image: &test_image_index})
         if err != nil {
                 log.Fatalf("could not add: %v", err)
         }
