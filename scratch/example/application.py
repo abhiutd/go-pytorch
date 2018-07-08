@@ -71,3 +71,12 @@ x = torch.randn(batch_size, 1, 224, 224, requires_grad=True)
 # param 3: file name for model onnx
 # param 4: store trained parameter weights inside model file
 torch_out = torch.onnx._export(torch_model, x, "./model/super_resolution.onnx", export_params=True)
+
+# save model in pytorch format
+torch.save(torch_model, "./model/super_resolution.pth")
+
+# try loading saved .pth model
+model = torch.load("./model/super_resolution.pth")
+# run inference
+y = torch.randn(batch_size, 1, 224, 224, requires_grad=True)
+model.forward(y)

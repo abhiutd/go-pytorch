@@ -19,7 +19,7 @@
 package main
 
 import (
-        "log"
+       "log"
         "time"
 
         "golang.org/x/net/context"
@@ -31,3 +31,25 @@ const (
         address     = "localhost:50052"
         defaultName = "dlframework"
 )
+
+func main() {
+
+        // Set up a connection to the server
+        conn, err := grpc.Dial(address, grpc.WithInsecure())
+        if err != nil {
+                log.Fatalf("did not connect: %v", err)
+        }
+        defer conn.Close()
+        c := pb.NewDlframeworkClient(conn)
+        ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+        defer cancel()
+
+        // Contact the server 
+        // Send test image URL as part of the message
+        var image_url string = "https://s3.amazonaws.com/outcome-blog/wp-content/uploads/2017/02/25192225/cat.jpg"
+        r, err := c.Predict(ctx, &pb.DlRequest{Image: &image_url})
+        if err != nil {
+                log.Fatalf("could not add: %v", err)
+        }
+        log.Printf("Predicted: %s", *r.Prediction)
+}
