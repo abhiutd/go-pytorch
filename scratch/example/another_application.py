@@ -10,6 +10,14 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch
 
+### If you comment it out, you would get
+### Attribute error
+### We need access to .pth + its source code
+### for class definitions and dependent packages
+### Reference: https://discuss.pytorch.org/t/loading-pytorch-model-without-a-code/12469
+# import original class
+from application import SuperResolutionNet
+
 # import pytorch specific model file
 model = torch.load("./model/super_resolution.pth")
 
