@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include <caffe/caffe.hpp>
+#include <torch/torch.h>
 
 #include "json.hpp"
 #include "predictor.hpp"
@@ -18,13 +18,14 @@
 #define DEBUG_STMT
 #endif
 
-using namespace caffe;
+using namespace torch;
 using std::string;
 using json = nlohmann::json;
 
 /* Pair (label, confidence) representing a prediction. */
 using Prediction = std::pair<int, float>;
 
+/*
 template <typename Dtype>
 class StartProfile : public Net<Dtype>::Callback {
  public:
@@ -55,7 +56,9 @@ class StartProfile : public Net<Dtype>::Callback {
   int current_layer_sequence_index_{1};
   const shared_ptr<Net<Dtype>> net_{nullptr};
 };
+*/
 
+/*
 template <typename Dtype>
 class EndProfile : public Net<Dtype>::Callback {
  public:
@@ -77,39 +80,48 @@ class EndProfile : public Net<Dtype>::Callback {
  private:
   profile *prof_{nullptr};
 };
+*/
 
+/*
+	Predictor class takes in one module file (exported using torch JIT compiler)
+	, batch size and device mode for inference
+*/
 class Predictor {
  public:
-  Predictor(const string &model_file, const string &trained_file, int batch,
-            caffe::Caffe::Brew mode);
+  Predictor(const string &model_file, int batch, torch::DeviceType mode);
 
   void Predict(float *imageData);
 
   void setMode() {
     Caffe::set_mode(mode_);
-    if (mode_ == Caffe::Brew::GPU) {
+    if (mode_ == torch::kCUDA) {
       Caffe::SetDevice(0);
     }
   }
 
-  shared_ptr<Net<float>> net_;
+  shared_ptr<torch::jit::script::Module> net_;
   int width_, height_, channels_;
   int batch_;
   int pred_len_;
-  caffe::Caffe::Brew mode_{Caffe::CPU};
+  torch::DeviceType mode_{torch::kCPU};
   profile *prof_{nullptr};
   bool profile_enabled_{false};
   const float *result_{nullptr};
 };
 
-Predictor::Predictor(const string &model_file, const string &trained_file,
-                     int batch, caffe::Caffe::Brew mode) {
+Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode) {
   /* Load the network. */
-  net_.reset(new Net<float>(model_file, TEST));
-  net_->CopyTrainedLayersFrom(trained_file);
+	// In pytorch, a loaded module in c++ is given 
+	// type torch::jit::script::Module as it has been
+	// ported from python/c++ via pytorch's JIT compiler
+  net_ = torch::jit::load(model_file);
+	assert(net_ != nullptr);
 
   mode_ = mode;
 
+	// TODO: check whether number of inputs and number of outputs
+	// are the same as desired
+	// May be JIT Module doesn't provide those methods
   CHECK_EQ(net_->num_inputs(), 1) << "Network should have exactly one input.";
   CHECK_EQ(net_->num_outputs(), 1) << "Network should have exactly one output.";
 
