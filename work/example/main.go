@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	model        = "resnet"
+	model        = "alexnet"
 )
 
 
@@ -31,7 +31,7 @@ func main() {
 
 	dir, _ := filepath.Abs(".")
 	dir = filepath.Join(dir, model)
-	graph := filepath.Join(dir, "resnet_18.pt")
+	graph := filepath.Join(dir, "alexnet.pt")
 	batchSize := 1
 	opts := options.New()
 
