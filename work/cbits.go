@@ -56,7 +56,6 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 	return &Predictor{
 		ctx: C.NewPytorch(
 			C.CString(modelFile),
-			C.CString(weightsFile),
 			C.int(options.BatchSize()),
 			C.int(mode),
 		),
@@ -94,12 +93,12 @@ func (p *Predictor) Predict(ctx context.Context, data []float32) error {
 		data = append(data, padding...)
 	}
 
-	ptr := (*C.float)(unsafe.Pointer(&data[0]))
+	//ptr := (*C.float)(unsafe.Pointer(&data[0]))
 
 	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer predictSpan.Finish()
 
-	C.PredictPytorch(p.ctx, ptr)
+	C.PredictPytorch(p.ctx)
 
 	return nil
 }
