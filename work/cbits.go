@@ -6,7 +6,6 @@ package pytorch
 import "C"
 import (
 	"context"
-	"fmt"
 	"unsafe"
 
 	"github.com/rai-project/tracer"
@@ -36,10 +35,6 @@ func New(ctx context.Context, opts ...options.Option) (*Predictor, error) {
 	modelFile := string(options.Graph())
 	if !com.IsFile(modelFile) {
 		return nil, errors.Errorf("file %s not found", modelFile)
-	}
-	weightsFile := string(options.Weights())
-	if !com.IsFile(weightsFile) {
-		return nil, errors.Errorf("file %s not found", weightsFile)
 	}
 
 	mode := CPUMode
@@ -75,25 +70,7 @@ func init() {
 	C.InitPytorch()
 }
 
-func (p *Predictor) Predict(ctx context.Context, data []float32) error {
-	if data == nil || len(data) < 1 {
-		return fmt.Errorf("intput data nil or empty")
-	}
-
-	batchSize := p.options.BatchSize()
-	width := C.GetWidthPytorch(p.ctx)
-	height := C.GetHeightPytorch(p.ctx)
-	channels := C.GetChannelsPytorch(p.ctx)
-	shapeLen := int(width * height * channels)
-	dataLen := len(data)
-
-	inputCount := dataLen / shapeLen
-	if batchSize > inputCount {
-		padding := make([]float32, (batchSize-inputCount)*shapeLen)
-		data = append(data, padding...)
-	}
-
-	//ptr := (*C.float)(unsafe.Pointer(&data[0]))
+func (p *Predictor) Predict(ctx context.Context) error {
 
 	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer predictSpan.Finish()
