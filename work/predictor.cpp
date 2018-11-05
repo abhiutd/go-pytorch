@@ -1,3 +1,5 @@
+#define _GLIBCXX_USE_CXX11_ABI 0
+
 #include <algorithm>
 #include <iosfwd>
 #include <memory>
@@ -6,6 +8,7 @@
 #include <vector>
 
 #include <torch/torch.h>
+#include <torch/script.h>
 
 #include "json.hpp"
 #include "predictor.hpp"
@@ -26,87 +29,24 @@ using json = nlohmann::json;
 using Prediction = std::pair<int, float>;
 
 /*
-template <typename Dtype>
-class StartProfile : public Net<Dtype>::Callback {
- public:
-  explicit StartProfile(profile *prof, const shared_ptr<Net<Dtype>> &net)
-      : prof_(prof), net_(net) {}
-  virtual ~StartProfile() {}
-
- protected:
-  virtual void run(int layer) final {
-    if (prof_ == nullptr || net_ == nullptr) {
-      return;
-    }
-    const auto layer_name = net_->layer_names()[layer];
-    const auto layer_type = net_->layers()[layer]->type();
-    const auto blobs = net_->layers()[layer]->blobs();
-    shapes_t shapes{};
-    for (const auto blob : blobs) {
-      shapes.emplace_back(blob->shape());
-    }
-    auto e = new profile_entry(current_layer_sequence_index_, layer_name,
-                               layer_type, shapes);
-    prof_->add(layer, e);
-    current_layer_sequence_index_++;
-  }
-
- private:
-  profile *prof_{nullptr};
-  int current_layer_sequence_index_{1};
-  const shared_ptr<Net<Dtype>> net_{nullptr};
-};
-*/
-
-/*
-template <typename Dtype>
-class EndProfile : public Net<Dtype>::Callback {
- public:
-  explicit EndProfile(profile *prof) : prof_(prof) {}
-  virtual ~EndProfile() {}
-
- protected:
-  virtual void run(int layer) final {
-    if (prof_ == nullptr) {
-      return;
-    }
-    auto e = prof_->get(layer);
-    if (e == nullptr) {
-      return;
-    }
-    e->end();
-  }
-
- private:
-  profile *prof_{nullptr};
-};
-*/
-
-/*
 	Predictor class takes in one module file (exported using torch JIT compiler)
 	, batch size and device mode for inference
 */
 class Predictor {
  public:
+	// TODO
   Predictor(const string &model_file, int batch, torch::DeviceType mode);
+	// TODO
+  void Predict();
 
-  void Predict(float *imageData);
-
-  void setMode() {
-    Caffe::set_mode(mode_);
-    if (mode_ == torch::kCUDA) {
-      Caffe::SetDevice(0);
-    }
-  }
-
-  shared_ptr<torch::jit::script::Module> net_;
+  std::shared_ptr<torch::jit::script::Module> net_;
   int width_, height_, channels_;
   int batch_;
   int pred_len_;
   torch::DeviceType mode_{torch::kCPU};
   profile *prof_{nullptr};
   bool profile_enabled_{false};
-  const float *result_{nullptr};
+  torch::jit::IValue result_;
 };
 
 Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode) {
@@ -119,65 +59,34 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
 
   mode_ = mode;
 
-	// TODO: check whether number of inputs and number of outputs
-	// are the same as desired
-	// May be JIT Module doesn't provide those methods
-  CHECK_EQ(net_->num_inputs(), 1) << "Network should have exactly one input.";
-  CHECK_EQ(net_->num_outputs(), 1) << "Network should have exactly one output.";
 
-  const auto input_layer = net_->input_blobs()[0];
-
-  width_ = input_layer->width();
-  height_ = input_layer->height();
-  channels_ = input_layer->channels();
+	width_ = 1;
+	height_ = 1;
+	channels_ = 3;
   batch_ = batch;
 
   CHECK(channels_ == 3 || channels_ == 1)
       << "Input layer should have 1 or 3 channels.";
 
-  input_layer->Reshape(batch_, channels_, height_, width_);
-  net_->Reshape();
 }
 
-void Predictor::Predict(float *imageData) {
-  setMode();
+void Predictor::Predict() {
 
-  result_ = nullptr;
+	// Create a vector of inputs.
+	std::vector<torch::jit::IValue> inputs;
+	inputs.push_back(torch::ones({1, 3, 224, 224}));
 
-  auto blob = new caffe::Blob<float>(batch_, channels_, height_, width_);
+	// Execute the model and turn its output into a tensor.
+	result_ = net_->forward(inputs);
+	//std::cout << output.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
 
-  if (mode_ == Caffe::CPU) {
-    blob->set_cpu_data(imageData);
-  } else {
-    blob->set_gpu_data(imageData);
-    blob->mutable_gpu_data();
-  }
-
-  const std::vector<caffe::Blob<float> *> bottom{blob};
-  StartProfile<float> *start_profile = nullptr;
-  EndProfile<float> *end_profile = nullptr;
-  if (prof_ != nullptr && profile_enabled_ == false) {
-    start_profile = new StartProfile<float>(prof_, net_);
-    end_profile = new EndProfile<float>(prof_);
-    net_->add_before_forward(start_profile);
-    net_->add_after_forward(end_profile);
-    profile_enabled_ = true;
-  }
-
-  // net_->set_debug_info(true);
-
-  const auto rr = net_->Forward(bottom);
-  const auto output_layer = rr[0];
-
-  pred_len_ = output_layer->channels();
-  result_ = output_layer->cpu_data();
 }
 
-PredictorContext NewCaffe(char *model_file, char *trained_file, int batch,
+PredictorContext NewPytorch(char *model_file, int batch,
                           int mode) {
   try {
-    const auto ctx = new Predictor(model_file, trained_file, batch,
-                                   (caffe::Caffe::Brew)mode);
+    const auto ctx = new Predictor(model_file, batch,
+                                   (torch::DeviceType)mode);
     return (void *)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -186,38 +95,31 @@ PredictorContext NewCaffe(char *model_file, char *trained_file, int batch,
   }
 }
 
-void SetModeCaffe(int mode) {
-  static bool mode_set = false;
-  if (!mode_set) {
-    mode_set = true;
-    Caffe::set_mode((caffe::Caffe::Brew)mode);
-    if (mode == Caffe::Brew::GPU) {
-      Caffe::SetDevice(0);
-    }
-  }
+void SetModePytorch(int mode) {
+	
 }
 
-void InitCaffe() { ::google::InitGoogleLogging("go-caffe"); }
+void InitPytorch() {}
 
-void PredictCaffe(PredictorContext pred, float *imageData) {
+void PredictPytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return;
   }
-  predictor->Predict(imageData);
+  predictor->Predict();
   return;
 }
 
-const float *GetPredictionsCaffe(PredictorContext pred) {
+const float*GetPredictionsPytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return nullptr;
   }
 
-  return predictor->result_;
+  return nullptr;
 }
 
-void DeleteCaffe(PredictorContext pred) {
+void DeletePytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return;
@@ -230,59 +132,25 @@ void DeleteCaffe(PredictorContext pred) {
   delete predictor;
 }
 
-void StartProfilingCaffe(PredictorContext pred, const char *name,
+void StartProfilingPytorch(PredictorContext pred, const char *name,
                          const char *metadata) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    return;
-  }
-  if (name == nullptr) {
-    name = "";
-  }
-  if (metadata == nullptr) {
-    metadata = "";
-  }
-  if (predictor->prof_ == nullptr) {
-    predictor->prof_ = new profile(name, metadata);
-  } else {
-    predictor->prof_->reset();
-  }
+
 }
 
-void EndProfilingCaffe(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    return;
-  }
-  if (predictor->prof_) {
-    predictor->prof_->end();
-  }
+void EndProfilingPytorch(PredictorContext pred) {
+
 }
 
-void DisableProfilingCaffe(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    return;
-  }
-  if (predictor->prof_) {
-    predictor->prof_->reset();
-  }
+void DisableProfilingPytorch(PredictorContext pred) {
+
 }
 
-char *ReadProfileCaffe(PredictorContext pred) {
-  auto predictor = (Predictor *)pred;
-  if (predictor == nullptr) {
-    return strdup("");
-  }
-  if (predictor->prof_ == nullptr) {
-    return strdup("");
-  }
-  const auto s = predictor->prof_->read();
-  const auto cstr = s.c_str();
-  return strdup(cstr);
+char *ReadProfilePytorch(PredictorContext pred) {
+  char* temp = NULL;
+	return temp;
 }
 
-int GetWidthCaffe(PredictorContext pred) {
+int GetWidthPytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return 0;
@@ -290,7 +158,7 @@ int GetWidthCaffe(PredictorContext pred) {
   return predictor->width_;
 }
 
-int GetHeightCaffe(PredictorContext pred) {
+int GetHeightPytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return 0;
@@ -298,7 +166,7 @@ int GetHeightCaffe(PredictorContext pred) {
   return predictor->height_;
 }
 
-int GetChannelsCaffe(PredictorContext pred) {
+int GetChannelsPytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return 0;
@@ -306,7 +174,7 @@ int GetChannelsCaffe(PredictorContext pred) {
   return predictor->channels_;
 }
 
-int GetPredLenCaffe(PredictorContext pred) {
+int GetPredLenPytorch(PredictorContext pred) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return 0;

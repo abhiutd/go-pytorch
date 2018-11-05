@@ -9,14 +9,14 @@ extern "C" {
 
 typedef void *PredictorContext;
 
-PredictorContext NewPytorch(char *model_file, char *trained_file, int batch,
+PredictorContext NewPytorch(char *model_file, int batch,
                           int mode);
 
 void SetModePytorch(int mode);
 
 void InitPytorch();
 
-void PredictPytorch(PredictorContext pred, float *imageData);
+void PredictPytorch(PredictorContext pred);
 
 const float *GetPredictionsPytorch(PredictorContext pred);
 
