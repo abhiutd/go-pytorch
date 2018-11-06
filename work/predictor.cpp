@@ -10,6 +10,9 @@
 #include <torch/torch.h>
 #include <torch/script.h>
 
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 #include "json.hpp"
 #include "predictor.hpp"
 #include "timer.h"
@@ -24,6 +27,7 @@
 using namespace torch;
 using std::string;
 using json = nlohmann::json;
+using namespace cv;
 
 /* Pair (label, confidence) representing a prediction. */
 using Prediction = std::pair<int, float>;
@@ -34,10 +38,8 @@ using Prediction = std::pair<int, float>;
 */
 class Predictor {
  public:
-	// TODO
   Predictor(const string &model_file, int batch, torch::DeviceType mode);
-	// TODO
-  void Predict();
+  void Predict(string datapath);
 
   std::shared_ptr<torch::jit::script::Module> net_;
   int width_, height_, channels_;
@@ -46,7 +48,7 @@ class Predictor {
   torch::DeviceType mode_{torch::kCPU};
   profile *prof_{nullptr};
   bool profile_enabled_{false};
-  torch::jit::IValue result_;
+  at::Tensor result_;
 };
 
 Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode) {
@@ -59,26 +61,33 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
 
   mode_ = mode;
 
-
-	width_ = 1;
-	height_ = 1;
+	// TODO should fetch width and height from model
+	width_ = 224;
+	height_ = 224;
 	channels_ = 3;
   batch_ = batch;
 
   CHECK(channels_ == 3 || channels_ == 1)
       << "Input layer should have 1 or 3 channels.";
 
+
 }
 
-void Predictor::Predict() {
+void Predictor::Predict(const string &datapath) {
 
-	// Create a vector of inputs.
+	//result_ = nullptr;
+
+	Mat image = imread(datapath);
+	std::vector<int64_t> sizes = {1, 3, image.rows, image.cols};
+	at::TensorOptions options(at::ScalarType::Byte);
+	at::Tensor tensor_image = torch::from_blob(image.data, at::IntList(sizes), options);
+	tensor_image = tensor_image.toType(at::kFloat);
+
 	std::vector<torch::jit::IValue> inputs;
-	inputs.push_back(torch::ones({1, 3, 224, 224}));
+	inputs.emplace_back(tensor_image);
 
 	// Execute the model and turn its output into a tensor.
-	result_ = net_->forward(inputs);
-	//std::cout << output.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
+	result_ = net_->forward(inputs).toTensor();
 
 }
 
@@ -92,7 +101,6 @@ PredictorContext NewPytorch(char *model_file, int batch,
     LOG(ERROR) << "exception: " << ex.what();
     errno = EINVAL;
     return nullptr;
-  }
 }
 
 void SetModePytorch(int mode) {
@@ -101,12 +109,12 @@ void SetModePytorch(int mode) {
 
 void InitPytorch() {}
 
-void PredictPytorch(PredictorContext pred) {
+void PredictPytorch(PredictorContext pred, const string &datapath) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return;
   }
-  predictor->Predict();
+  predictor->Predict(datapath);
   return;
 }
 
@@ -116,6 +124,7 @@ const float*GetPredictionsPytorch(PredictorContext pred) {
     return nullptr;
   }
 
+	//TODO return float casted result
   return nullptr;
 }
 
@@ -181,3 +190,4 @@ int GetPredLenPytorch(PredictorContext pred) {
   }
   return predictor->pred_len_;
 }
+

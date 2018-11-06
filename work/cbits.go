@@ -70,12 +70,37 @@ func init() {
 	C.InitPytorch()
 }
 
-func (p *Predictor) Predict(ctx context.Context) error {
+func (p *Predictor) Predict(ctx context.Context, datapath string) error {
+
+	if datapath == nil || len(datapath) < 1 {
+    return fmt.Errorf("input datapath nil or empty")
+  }
+
+  batchSize := p.options.BatchSize()
+  width := C.GetWidthPytorch(p.ctx)
+  height := C.GetHeightPytorch(p.ctx)
+  channels := C.GetChannelsPytorch(p.ctx)
+  shapeLen := int(width * height * channels)
+
+	/*
+	dataLen := len(data)
+
+  inputCount := dataLen / shapeLen
+  if batchSize > inputCount {
+    padding := make([]float32, (batchSize-inputCount)*shapeLen)
+    data = append(data, padding...)
+  }
+
+  ptr := (*C.float)(unsafe.Pointer(&data[0]))
+	*/
+
+	cdatapath = C.CString(datapath)
+	defer C.free(unsafe.Pointer(cdatapath))
 
 	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer predictSpan.Finish()
 
-	C.PredictPytorch(p.ctx)
+	C.PredictPytorch(p.ctx, cdatapath)
 
 	return nil
 }
