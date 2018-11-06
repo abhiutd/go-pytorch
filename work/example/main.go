@@ -8,14 +8,16 @@ package main
 import "C"
 
 import (
+	"bufio"
+  "os"
 	"context"
 	"path/filepath"
 
-	"github.com/anthonynsimon/bild/imgio"
 	"github.com/k0kubun/pp"
 
 	"github.com/rai-project/config"
 	"github.com/rai-project/dlframework/framework/options"
+	"github.com/rai-project/downloadmanager"
 	"github.com/go-pytorch/work"
 	nvidiasmi "github.com/rai-project/nvidia-smi"
 	"github.com/rai-project/tracer"
@@ -24,12 +26,12 @@ import (
 
 var (
 	batchSize		 = 64
-	model        = "alexnet"
+	model        = "resnet"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
 )
 
 // convert go Image to 1-dim array
-func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
+/*func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
   if src == nil {
     return nil, fmt.Errorf("src image nil")
   }
@@ -49,14 +51,14 @@ func cvtImageTo1DArray(src image.Image, mean []float32) ([]float32, error) {
   }
 
   return res, nil
-}
+}*/
 
 func main() {
 	defer tracer.Close()
 
 	dir, _ := filepath.Abs(".")
 	dir = filepath.Join(dir, model)
-	graph := filepath.Join(dir, "alexnet.pt")
+	graph := filepath.Join(dir, "resnet_18.pt")
 	features := filepath.Join(dir, "synset.txt")
 
 	if _, err := os.Stat(features); os.IsNotExist(err) {
@@ -67,14 +69,9 @@ func main() {
   }
 
 	imgDir, _ := filepath.Abs("./_fixtures")
-  imagePath := filepath.Join(imgDir, "platypus.jpg")
+  imagePath := filepath.Join(imgDir, "cat.jpg")
 
-  img, err := imgio.Open(imagePath)
-  if err != nil {
-    panic(err)
-  }
-
-	var input []float32
+	/*var input []float32
   for ii := 0; ii < batchSize; ii++ {
     resized := transform.Resize(img, 227, 227, transform.Linear)
     res, err := cvtImageTo1DArray(resized, []float32{123, 117, 104})
@@ -82,7 +79,7 @@ func main() {
       panic(err)
     }
     input = append(input, res...)
-  }
+  }*/
 
 	opts := options.New()
 
@@ -110,11 +107,6 @@ func main() {
 		panic(err)
 	}
 	defer predictor.Close()
-
-	err = predictor.Predict(ctx, imagePath)
-	if err != nil {
-		panic(err)
-	}
 
 	err = predictor.Predict(ctx, imagePath)
 	if err != nil {

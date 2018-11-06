@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <torch/torch.h>
 #include <torch/script.h>
@@ -39,7 +40,7 @@ using Prediction = std::pair<int, float>;
 class Predictor {
  public:
   Predictor(const string &model_file, int batch, torch::DeviceType mode);
-  void Predict(string datapath);
+  void Predict(const char* datapath);
 
   std::shared_ptr<torch::jit::script::Module> net_;
   int width_, height_, channels_;
@@ -73,11 +74,12 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
 
 }
 
-void Predictor::Predict(const string &datapath) {
+void Predictor::Predict(const char* datapath) {
 
 	//result_ = nullptr;
 
 	Mat image = imread(datapath);
+	std::cout << "Image size: (rows,cols) ->" << image.rows << "," << image.cols << std::endl; 
 	std::vector<int64_t> sizes = {1, 3, image.rows, image.cols};
 	at::TensorOptions options(at::ScalarType::Byte);
 	at::Tensor tensor_image = torch::from_blob(image.data, at::IntList(sizes), options);
@@ -101,6 +103,8 @@ PredictorContext NewPytorch(char *model_file, int batch,
     LOG(ERROR) << "exception: " << ex.what();
     errno = EINVAL;
     return nullptr;
+	}
+
 }
 
 void SetModePytorch(int mode) {
@@ -109,7 +113,7 @@ void SetModePytorch(int mode) {
 
 void InitPytorch() {}
 
-void PredictPytorch(PredictorContext pred, const string &datapath) {
+void PredictPytorch(PredictorContext pred, const char* datapath) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return;

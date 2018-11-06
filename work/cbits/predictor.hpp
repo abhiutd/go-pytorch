@@ -16,7 +16,7 @@ void SetModePytorch(int mode);
 
 void InitPytorch();
 
-//void PredictPytorch(PredictorContext pred, std::string datapath);
+void PredictPytorch(PredictorContext pred, const char *datapath);
 
 const float *GetPredictionsPytorch(PredictorContext pred);
 
