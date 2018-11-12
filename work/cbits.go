@@ -76,27 +76,24 @@ func init() {
 func (p *Predictor) Predict(ctx context.Context, data []float32) error {
 
 	if data == nil || len(data) < 1 {
-    return fmt.Errorf("input nil or empty")
-  }
+		return fmt.Errorf("input nil or empty")
+	}
 
-  batchSize := p.options.BatchSize()
-  width := C.GetWidthPytorch(p.ctx)
-  height := C.GetHeightPytorch(p.ctx)
-  channels := C.GetChannelsPytorch(p.ctx)
-  shapeLen := int(width * height * channels)
+	batchSize := p.options.BatchSize()
+	width := C.GetWidthPytorch(p.ctx)
+	height := C.GetHeightPytorch(p.ctx)
+	channels := C.GetChannelsPytorch(p.ctx)
+	shapeLen := int(width * height * channels)
 
 	dataLen := len(data)
 
-  inputCount := dataLen / shapeLen
-  if batchSize > inputCount {
-    padding := make([]float32, (batchSize-inputCount)*shapeLen)
-    data = append(data, padding...)
-  }
+	inputCount := dataLen / shapeLen
+	if batchSize > inputCount {
+		padding := make([]float32, (batchSize-inputCount)*shapeLen)
+		data = append(data, padding...)
+	}
 
-  ptr := (*C.float)(unsafe.Pointer(&data[0]))
-
-	//cdatapath := C.CString(datapath)
-	//defer C.free(unsafe.Pointer(cdatapath))
+	ptr := (*C.float)(unsafe.Pointer(&data[0]))
 
 	predictSpan, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "c_predict")
 	defer predictSpan.Finish()
@@ -110,20 +107,11 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "read_predicted_features")
 	defer span.Finish()
 
-	// batchSize seems fine
 	batchSize := p.options.BatchSize()
-	// predLen is incorrect, it is assigning random number 
 	predLen := int(C.GetPredLenPytorch(p.ctx))
 	length := batchSize * predLen
 
-	// DEBUG
-	//pp.Println("batchSize: ", batchSize)
-	//pp.Println("predLen: ", predLen)
-	//pp.Println("length: ", length)
-
 	cPredictions := C.GetPredictionsPytorch(p.ctx)
-	// DEBUG
-	//fmt.Printf("cPredictions: %v", cPredictions)
 
 	slice := (*[1 << 30]C.float)(unsafe.Pointer(cPredictions))[:length:length]
 
