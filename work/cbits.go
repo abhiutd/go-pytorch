@@ -9,6 +9,8 @@ import (
 	"unsafe"
 	"fmt"
 
+	"github.com/k0kubun/pp"
+
 	"github.com/rai-project/tracer"
 
 	"github.com/rai-project/nvidia-smi"
@@ -110,11 +112,20 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 	span, _ := tracer.StartSpanFromContext(ctx, tracer.MODEL_TRACE, "read_predicted_features")
 	defer span.Finish()
 
+	// batchSize seems fine
 	batchSize := p.options.BatchSize()
+	// predLen is incorrect, it is assigning random number 
 	predLen := int(C.GetPredLenPytorch(p.ctx))
 	length := batchSize * predLen
 
+	// DEBUG
+	pp.Println("batchSize: ", batchSize)
+	pp.Println("predLen: ", predLen)
+	pp.Println("length: ", length)
+
 	cPredictions := C.GetPredictionsPytorch(p.ctx)
+
+	fmt.Printf("cPredictions: %v", cPredictions)
 
 	slice := (*[1 << 30]C.float)(unsafe.Pointer(cPredictions))[:length:length]
 

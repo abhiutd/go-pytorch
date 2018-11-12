@@ -59,7 +59,6 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
 	// ported from python/c++ via pytorch's JIT compiler
   net_ = torch::jit::load(model_file);
 	assert(net_ != nullptr);
-
   mode_ = mode;
 
 	// TODO should fetch width and height from model
@@ -129,7 +128,20 @@ const float*GetPredictionsPytorch(PredictorContext pred) {
   }
 
 	//TODO return float casted result
-  return nullptr;
+	//auto max_result = predictor->result_.max(0, true);
+	//create a float array 
+	/*assert(predictor->result_.dim()==2);
+	auto res = predictor->result_.accessor<float,2>();
+	float* temp = new float[res.size(0)];
+	for(int i = 0; i < res.size(0); i++) {
+ 	 // use the accessor foo_a to get tensor data.
+  	temp[i] = res[i][0];
+	}
+	return temp;*/
+  //return predictor->result_.toType();
+	//predictor->pred_len_ = predictor->result_.size(1);
+	//printf("Value in pred_len_ : %d", predictor->pred_len_);
+	return predictor->result_.data<float>();
 }
 
 void DeletePytorch(PredictorContext pred) {
@@ -192,6 +204,8 @@ int GetPredLenPytorch(PredictorContext pred) {
   if (predictor == nullptr) {
     return 0;
   }
+	predictor->pred_len_ = predictor->result_.size(1);
+  printf("Value in pred_len_ : %d", predictor->pred_len_);
   return predictor->pred_len_;
 }
 

@@ -8,7 +8,7 @@ package main
 import "C"
 
 import (
-	//"bufio"
+	"bufio"
   "os"
 	"context"
 	"path/filepath"
@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	batchSize		 = 64
+	batchSize		 = 1
 	model        = "alexnet"
 	graph_url		 = "https://s3.amazonaws.com/store.carml.org/models/pytorch/alexnet.pt"
 	features_url = "http://data.dmlc.ml/mxnet/models/imagenet/synset.txt"
@@ -92,9 +92,9 @@ func main() {
 		panic(err)
 	}
 
-	//predictions := predictor.ReadPredictedFeatures(ctx)
+	predictions := predictor.ReadPredictedFeatures(ctx)
 
-  /*if true {
+  if true {
     var labels []string
     f, err := os.Open(features)
     if err != nil {
@@ -117,7 +117,6 @@ func main() {
   } else {
     _ = predictions
   }
-	*/
 
 	// INFO
 	pp.Println("End of prediction...")
