@@ -62,8 +62,8 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
   mode_ = mode;
 
 	// TODO should fetch width and height from model
-	width_ = 227;
-	height_ = 227;
+	width_ = 224;
+	height_ = 224;
 	channels_ = 3;
   batch_ = batch;
 
