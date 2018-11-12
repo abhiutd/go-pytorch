@@ -40,7 +40,7 @@ using Prediction = std::pair<int, float>;
 class Predictor {
  public:
   Predictor(const string &model_file, int batch, torch::DeviceType mode);
-  void Predict(const char* datapath);
+  void Predict(float* imageData);
 
   std::shared_ptr<torch::jit::script::Module> net_;
   int width_, height_, channels_;
@@ -62,8 +62,8 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
   mode_ = mode;
 
 	// TODO should fetch width and height from model
-	width_ = 224;
-	height_ = 224;
+	width_ = 227;
+	height_ = 227;
 	channels_ = 3;
   batch_ = batch;
 
@@ -73,19 +73,18 @@ Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode
 
 }
 
-void Predictor::Predict(const char* datapath) {
+void Predictor::Predict(float* imageData) {
 
 	//result_ = nullptr;
 
-	Mat image = imread(datapath);
-	
+	//Mat image = imread(datapath);	
 	// DEBUG 
 	//std::cout << "Image size: (rows,cols) ->" << image.rows << "," << image.cols << std::endl; 
 	
-	std::vector<int64_t> sizes = {1, 3, image.rows, image.cols};
-	at::TensorOptions options(at::ScalarType::Byte);
-	at::Tensor tensor_image = torch::from_blob(image.data, at::IntList(sizes), options);
-	tensor_image = tensor_image.toType(at::kFloat);
+	std::vector<int64_t> sizes = {1, 3, width_, height_};
+	at::TensorOptions options(at::kFloat);
+	at::Tensor tensor_image = torch::from_blob(imageData, at::IntList(sizes), options);
+	//tensor_image = tensor_image.toType(at::kFloat);
 
 	std::vector<torch::jit::IValue> inputs;
 
@@ -139,12 +138,12 @@ void SetModePytorch(int mode) {
 
 void InitPytorch() {}
 
-void PredictPytorch(PredictorContext pred, const char* datapath) {
+void PredictPytorch(PredictorContext pred, float* imageData) {
   auto predictor = (Predictor *)pred;
   if (predictor == nullptr) {
     return;
   }
-  predictor->Predict(datapath);
+  predictor->Predict(imageData);
   return;
 }
 
