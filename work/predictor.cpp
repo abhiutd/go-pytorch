@@ -78,25 +78,48 @@ void Predictor::Predict(const char* datapath) {
 	//result_ = nullptr;
 
 	Mat image = imread(datapath);
-	std::cout << "Image size: (rows,cols) ->" << image.rows << "," << image.cols << std::endl; 
+	
+	// DEBUG 
+	//std::cout << "Image size: (rows,cols) ->" << image.rows << "," << image.cols << std::endl; 
+	
 	std::vector<int64_t> sizes = {1, 3, image.rows, image.cols};
 	at::TensorOptions options(at::ScalarType::Byte);
 	at::Tensor tensor_image = torch::from_blob(image.data, at::IntList(sizes), options);
 	tensor_image = tensor_image.toType(at::kFloat);
 
 	std::vector<torch::jit::IValue> inputs;
-	inputs.emplace_back(tensor_image);
 
-	// Execute the model and turn its output into a tensor.
-	result_ = net_->forward(inputs).toTensor();
+	// check if mode is set to GPU
+  if(mode_ == torch::kCUDA) {
+    // port model to GPU
+    net_->to(at::kCUDA);
+    // port input to GPU
+		at::Tensor tensor_image_cuda = tensor_image.to(at::kCUDA);
+		// emplace IValue input
+  	inputs.emplace_back(tensor_image_cuda);
+		// execute model
+		result_ = net_->forward(inputs).toTensor();
+
+	}else {
+  	// emplace IValue input
+		inputs.emplace_back(tensor_image);
+		// execute model
+		result_ = net_->forward(inputs).toTensor();
+	}
+	// port output back to CPU
+	result_ = result_.to(at::kCPU);
 
 }
 
 PredictorContext NewPytorch(char *model_file, int batch,
                           int mode) {
   try {
+		torch::DeviceType mode_temp{at::kCPU};
+		if (mode == 1) {
+			mode_temp = at::kCUDA;
+		}
     const auto ctx = new Predictor(model_file, batch,
-                                   (torch::DeviceType)mode);
+                                   (torch::DeviceType)mode_temp);
     return (void *)ctx;
   } catch (const std::invalid_argument &ex) {
     LOG(ERROR) << "exception: " << ex.what();
@@ -107,7 +130,11 @@ PredictorContext NewPytorch(char *model_file, int batch,
 }
 
 void SetModePytorch(int mode) {
-	
+	if(mode == 1) {
+		// GPU
+		torch::Device device(torch::kCUDA);
+		// TODO set device to GPU
+	}
 }
 
 void InitPytorch() {}
@@ -127,20 +154,6 @@ const float*GetPredictionsPytorch(PredictorContext pred) {
     return nullptr;
   }
 
-	//TODO return float casted result
-	//auto max_result = predictor->result_.max(0, true);
-	//create a float array 
-	/*assert(predictor->result_.dim()==2);
-	auto res = predictor->result_.accessor<float,2>();
-	float* temp = new float[res.size(0)];
-	for(int i = 0; i < res.size(0); i++) {
- 	 // use the accessor foo_a to get tensor data.
-  	temp[i] = res[i][0];
-	}
-	return temp;*/
-  //return predictor->result_.toType();
-	//predictor->pred_len_ = predictor->result_.size(1);
-	//printf("Value in pred_len_ : %d", predictor->pred_len_);
 	return predictor->result_.data<float>();
 }
 
@@ -205,7 +218,6 @@ int GetPredLenPytorch(PredictorContext pred) {
     return 0;
   }
 	predictor->pred_len_ = predictor->result_.size(1);
-  printf("Value in pred_len_ : %d", predictor->pred_len_);
   return predictor->pred_len_;
 }
 

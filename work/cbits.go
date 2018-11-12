@@ -9,7 +9,7 @@ import (
 	"unsafe"
 	"fmt"
 
-	"github.com/k0kubun/pp"
+	//"github.com/k0kubun/pp"
 
 	"github.com/rai-project/tracer"
 
@@ -119,13 +119,13 @@ func (p *Predictor) ReadPredictedFeatures(ctx context.Context) Predictions {
 	length := batchSize * predLen
 
 	// DEBUG
-	pp.Println("batchSize: ", batchSize)
-	pp.Println("predLen: ", predLen)
-	pp.Println("length: ", length)
+	//pp.Println("batchSize: ", batchSize)
+	//pp.Println("predLen: ", predLen)
+	//pp.Println("length: ", length)
 
 	cPredictions := C.GetPredictionsPytorch(p.ctx)
-
-	fmt.Printf("cPredictions: %v", cPredictions)
+	// DEBUG
+	//fmt.Printf("cPredictions: %v", cPredictions)
 
 	slice := (*[1 << 30]C.float)(unsafe.Pointer(cPredictions))[:length:length]
 
