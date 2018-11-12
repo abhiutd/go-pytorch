@@ -38,22 +38,22 @@ using Prediction = std::pair<int, float>;
 	, batch size and device mode for inference
 */
 class Predictor {
- public:
- 	Predictor(const string &model_file, int batch, torch::DeviceType mode);
- 	void Predict(float* imageData);
+	public:
+		Predictor(const string &model_file, int batch, torch::DeviceType mode);
+		void Predict(float* imageData);
 
-  std::shared_ptr<torch::jit::script::Module> net_;
-  int width_, height_, channels_;
-  int batch_;
-  int pred_len_;
-  torch::DeviceType mode_{torch::kCPU};
-  profile *prof_{nullptr};
-  bool profile_enabled_{false};
-  at::Tensor result_;
+		std::shared_ptr<torch::jit::script::Module> net_;
+		int width_, height_, channels_;
+		int batch_;
+		int pred_len_;
+		torch::DeviceType mode_{torch::kCPU};
+		profile *prof_{nullptr};
+		bool profile_enabled_{false};
+		at::Tensor result_;
 };
 
 Predictor::Predictor(const string &model_file, int batch, torch::DeviceType mode) {
-  /* Load the network. */
+ 	/* Load the network. */
 	// In pytorch, a loaded module in c++ is given 
 	// type torch::jit::script::Module as it has been
 	// ported from python/c++ via pytorch's JIT compiler
@@ -90,7 +90,7 @@ void Predictor::Predict(float* imageData) {
 		// execute model
 		result_ = net_->forward(inputs).toTensor();
 	}else {
-  	// emplace IValue input
+		// emplace IValue input
 		inputs.emplace_back(tensor_image);
 		// execute model
 		result_ = net_->forward(inputs).toTensor();
