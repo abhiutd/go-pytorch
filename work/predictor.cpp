@@ -161,7 +161,7 @@ void DeletePytorch(PredictorContext pred) {
 
 void StartProfilingPytorch(PredictorContext pred, const char *name,
                          const char *metadata) {
-
+    // TODO
 }
 
 void EndProfilingPytorch(PredictorContext pred) {
